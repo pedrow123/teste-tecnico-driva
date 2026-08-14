@@ -1,0 +1,90 @@
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: driva_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-driva}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-driva_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-driva_dw}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-driva} -d ${POSTGRES_DB:-driva_dw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - driva_net
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: driva_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-driva_dw}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-driva}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-driva_pass}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - driva_net
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: driva_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-driva}:${POSTGRES_PASSWORD:-driva_pass}@postgres:5432/${POSTGRES_DB:-driva_dw}
+      API_KEY: ${API_KEY:-driva_test_key_abc123xyz789}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - driva_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: driva_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+      VITE_API_KEY: ${API_KEY:-driva_test_key_abc123xyz789}
+    depends_on:
+      - api
+    networks:
+      - driva_net
+
+networks:
+  driva_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  n8n_data:
