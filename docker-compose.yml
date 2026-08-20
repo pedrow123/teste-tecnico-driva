@@ -5,16 +5,16 @@ services:
     container_name: driva_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-driva}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-driva_pass}
-      POSTGRES_DB: ${POSTGRES_DB:-driva_dw}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-driva} -d ${POSTGRES_DB:-driva_dw}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -36,9 +36,9 @@ services:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-driva_dw}
-      DB_POSTGRESDB_USER: ${POSTGRES_USER:-driva}
-      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-driva_pass}
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows:ro
@@ -57,8 +57,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-driva}:${POSTGRES_PASSWORD:-driva_pass}@postgres:5432/${POSTGRES_DB:-driva_dw}
-      API_KEY: ${API_KEY:-driva_test_key_abc123xyz789}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      API_KEY: ${API_KEY:?defina API_KEY no .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +75,7 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:3000
-      VITE_API_KEY: ${API_KEY:-driva_test_key_abc123xyz789}
+      VITE_API_KEY: ${API_KEY:?defina API_KEY no .env}
     depends_on:
       - api
     networks:

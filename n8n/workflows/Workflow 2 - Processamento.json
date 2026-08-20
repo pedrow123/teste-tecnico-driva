@@ -1,0 +1,138 @@
+{
+  "name": "Workflow 2 - Processamento",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5cd3858a-60fb-4ce5-9d13-1356a7651cc7",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM bronze_enrichments;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "c76972fd-c89d-4d42-9472-ca18cbb5027f",
+      "name": "Ler Bronze",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO gold_enrichments (\n       id_enriquecimento, id_workspace, nome_workspace, total_contatos,\n       tipo_contato, status_processamento, data_criacao, data_atualizacao,\n       duracao_processamento_minutos, tempo_por_contato_minutos,\n       processamento_sucesso, categoria_tamanho_job, necessita_reprocessamento,\n       data_atualizacao_dw\n   )\n   VALUES (\n       '{{$json.id_enriquecimento}}',\n       '{{$json.id_workspace}}',\n       '{{$json.workspace_name}}',\n       {{$json.total_contacts}},\n       CASE '{{$json.contact_type}}' WHEN 'PERSON' THEN 'PESSOA' ELSE 'EMPRESA' END,\n       CASE '{{$json.status}}'\n           WHEN 'PROCESSING' THEN 'EM_PROCESSAMENTO'\n           WHEN 'COMPLETED'  THEN 'CONCLUIDO'\n           WHEN 'FAILED'     THEN 'FALHOU'\n           WHEN 'CANCELED'   THEN 'CANCELADO'\n       END,\n       '{{$json.created_at}}',\n       '{{$json.updated_at}}',\n       EXTRACT(EPOCH FROM ('{{$json.updated_at}}'::timestamptz - '{{$json.created_at}}'::timestamptz)) / 60,\n       (EXTRACT(EPOCH FROM ('{{$json.updated_at}}'::timestamptz - '{{$json.created_at}}'::timestamptz)) / 60)\n           / NULLIF({{$json.total_contacts}}, 0),\n       ('{{$json.status}}' = 'COMPLETED'),\n       CASE\n           WHEN {{$json.total_contacts}} < 100 THEN 'PEQUENO'\n           WHEN {{$json.total_contacts}} BETWEEN 100 AND 500 THEN 'MEDIO'\n           WHEN {{$json.total_contacts}} BETWEEN 501 AND 1000 THEN 'GRANDE'\n           ELSE 'MUITO_GRANDE'\n       END,\n       ('{{$json.status}}' IN ('FAILED', 'CANCELED')),\n       now()\n   )\n   ON CONFLICT (id_enriquecimento) DO UPDATE SET\n       status_processamento = EXCLUDED.status_processamento,\n       data_atualizacao = EXCLUDED.data_atualizacao,\n       duracao_processamento_minutos = EXCLUDED.duracao_processamento_minutos,\n       tempo_por_contato_minutos = EXCLUDED.tempo_por_contato_minutos,\n       processamento_sucesso = EXCLUDED.processamento_sucesso,\n       necessita_reprocessamento = EXCLUDED.necessita_reprocessamento,\n       data_atualizacao_dw = now();",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "2cd0716c-8581-4a79-92d1-e5694670a067",
+      "name": "Upsert Gold",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dw_pipeline_runs (etapa, status, qtd_registros, finalizado_em)\nVALUES (\n    'PROCESSAMENTO',\n    'SUCESSO',\n    {{ $('Ler Bronze').all().length }},\n    now()\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        0
+      ],
+      "id": "39152c8f-c15a-44bf-ae63-88d8d4bf2a40",
+      "name": "Log Execução",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Ler Bronze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler Bronze": {
+      "main": [
+        [
+          {
+            "node": "Upsert Gold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Gold": {
+      "main": [
+        [
+          {
+            "node": "Log Execução",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "23923933-c639-4d47-9e74-b37d35733b53",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5424ea22d71e2611c30f24cd2ca291fba4be1ae06ebcb7a15275f7a4a5b39c9c"
+  },
+  "nodeGroups": [],
+  "id": "zkiSaJ6eDwPQxpwg",
+  "tags": [
+    {
+      "updatedAt": "2026-08-17T23:51:52.166Z",
+      "createdAt": "2026-08-17T23:51:52.166Z",
+      "id": "AB5o55APf2wKPdOn",
+      "name": "Bronze -> Gold"
+    }
+  ]
+}

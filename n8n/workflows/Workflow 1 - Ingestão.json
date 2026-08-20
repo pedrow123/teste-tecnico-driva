@@ -1,0 +1,562 @@
+{
+  "name": "Workflow 1 - Ingestão",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "23b8b56c-7fd0-4984-90d4-5ed108483adf",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dd3d5f4c-ab64-4960-9f13-b8a743c3d8b8",
+              "name": "page",
+              "value": 1,
+              "type": "number"
+            },
+            {
+              "id": "11058f0f-5d95-4c28-be19-37c902f697de",
+              "name": "limit",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "fc8db967-6d8b-4380-a044-c2f25d011251",
+              "name": "retryCount",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "77c05763-d7aa-4e0e-b69f-bdd9eabb6267",
+      "name": "Init Pagination"
+    },
+    {
+      "parameters": {
+        "url": "=http://api:3000/people/v1/enrichments?page={{ $('Request Params').last().json.page }}&limit=50",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer driva_test_key_abc123xyz789"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "7dfe30df-cda8-4151-9853-476d0f84943d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "121583c6-953c-4343-ba6a-142016137c63",
+              "name": "retryCount",
+              "value": "={{ (retryCount ?? 0) + 1 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "dotNotation": false
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1296,
+        -208
+      ],
+      "id": "96386bec-5732-40a1-b6ea-f583c75fc7e5",
+      "name": "Incrementar tentativa"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "42d63752-b1ee-4ae7-b339-6a05067d083f",
+              "leftValue": "={{ $json.retryCount ?? 0 }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1488,
+        -208
+      ],
+      "id": "111e7fe6-d73a-41c2-9a51-001f88978b06",
+      "name": "maior que 5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f44c03d0-4500-40a0-b60b-ef7fde3797a9",
+              "leftValue": "={{$json.statusCode}}",
+              "rightValue": 429,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        928,
+        0
+      ],
+      "id": "e2ce9d27-55c8-4895-b02c-756532831baa",
+      "name": "se é igual a 429"
+    },
+    {
+      "parameters": {
+        "errorMessage": "API retornou HTTP 429 após 5 tentativas."
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        -352
+      ],
+      "id": "1db2c6ae-d2ef-46da-a9e6-59c60c44cc10",
+      "name": "Stop and Error"
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.min(Math.pow(2, $json.retryCount - 1), 30) }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1968,
+        -208
+      ],
+      "id": "2982100c-8651-44e9-bfe7-2581e0fe5ac2",
+      "name": "Wait",
+      "webhookId": "11805bbe-426a-49d1-90fb-968ee27e2233"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "=body.data",
+        "options": {
+          "destinationFieldName": ""
+        }
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        96
+      ],
+      "id": "8215c259-bcc3-466e-a382-2e582572fbfe",
+      "name": "Split Data"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bronze_enrichments\n       (id_enriquecimento, id_workspace, workspace_name, total_contacts,\n        contact_type, status, created_at, updated_at, raw_payload,\n        dw_ingested_at, dw_updated_at)\n   VALUES ('{{$json.id}}', '{{$json.id_workspace}}', '{{$json.workspace_name}}',\n        {{$json.total_contacts}}, '{{$json.contact_type}}', '{{$json.status}}',\n        '{{$json.created_at}}', '{{$json.updated_at}}', '{{JSON.stringify($json)}}',\n        now(), now())\n   ON CONFLICT (id_enriquecimento) DO UPDATE SET\n       workspace_name = EXCLUDED.workspace_name,\n       total_contacts = EXCLUDED.total_contacts,\n       contact_type   = EXCLUDED.contact_type,\n       status         = EXCLUDED.status,\n       updated_at     = EXCLUDED.updated_at,\n       raw_payload    = EXCLUDED.raw_payload,\n       dw_updated_at  = now();",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1536,
+        96
+      ],
+      "id": "d1fcafc8-dc18-4305-88f0-d218c3ff9e3b",
+      "name": "Upsert Bronze",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5f180b85-1626-4080-9d6c-c32736a9f3c6",
+              "leftValue": "={{ $('HTTP Request').item.json.body.meta.current_page }}",
+              "rightValue": "={{ $('HTTP Request').item.json.body.meta.total_pages }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1984,
+        96
+      ],
+      "id": "a058cfc5-123a-4886-92db-73ed7f7356aa",
+      "name": "Mais páginas?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef0d314d-2feb-480c-b541-4f03a67dc69a",
+              "name": "page",
+              "value": "={{ $('HTTP Request').last().json.body.meta.current_page + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "5ad40110-42c8-4bd0-8cf2-8f7ee1526ee8",
+              "name": "is429",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2608,
+        80
+      ],
+      "id": "30652d81-bccb-41d7-8bfb-2c6bbc3beadb",
+      "name": "Incrementa Página"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        96
+      ],
+      "id": "a771a7c2-af46-4aa6-8ea8-85246eb397aa",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    page: $input.item.json.page,\n    limit: $input.item.json.limit,\n    retryCount: $input.item.json.retryCount || 0\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "e234f0e1-0a23-4fd1-a7b0-eff295bb3f43",
+      "name": "Request Params"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "   INSERT INTO dw_pipeline_runs (etapa, status, qtd_registros, ultima_pagina, finalizado_em)\n   VALUES ('INGESTAO', 'SUCESSO', {{ $('HTTP Request').item.json.body.meta.total_items }}, {{ $('HTTP Request').item.json.body.meta.total_pages }}, now());",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2208,
+        144
+      ],
+      "id": "a82e7298-6a57-470e-8b53-b0dd62acc341",
+      "name": "Log Execução",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const requestedPage = $('Request Params').last().json.page;\nconst limit = $('Request Params').last().json.limit;\nconst retryCount = $('Request Params').last().json.retryCount;\n\nreturn [{\n  json: {\n    is429: true,\n    page: requestedPage,\n    limit,\n    retryCount: retryCount + 1\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -448
+      ],
+      "id": "b1678cc3-5bbb-4e14-80c9-8754404dfd8a",
+      "name": "Handle Params"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Init Pagination",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Pagination": {
+      "main": [
+        [
+          {
+            "node": "Request Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "se é igual a 429",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incrementar tentativa": {
+      "main": [
+        [
+          {
+            "node": "maior que 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "se é igual a 429": {
+      "main": [
+        [
+          {
+            "node": "Handle Params",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "maior que 5": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Request Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Data": {
+      "main": [
+        [
+          {
+            "node": "Upsert Bronze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Bronze": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mais páginas?": {
+      "main": [
+        [
+          {
+            "node": "Incrementa Página",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Execução",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incrementa Página": {
+      "main": [
+        [
+          {
+            "node": "Request Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Mais páginas?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Params": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Params": {
+      "main": [
+        [
+          {
+            "node": "Incrementar tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7fbc3804-7afe-4e0c-85c3-ac6b0452fe41",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5424ea22d71e2611c30f24cd2ca291fba4be1ae06ebcb7a15275f7a4a5b39c9c"
+  },
+  "nodeGroups": [],
+  "id": "hqgzbwPT5qVzFEBs",
+  "tags": [
+    {
+      "updatedAt": "2026-08-17T23:53:26.149Z",
+      "createdAt": "2026-08-17T23:53:26.149Z",
+      "id": "m1s4D0VI5quQq9QI",
+      "name": "API -> Bronze"
+    }
+  ]
+}

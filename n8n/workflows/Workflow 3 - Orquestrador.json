@@ -1,0 +1,210 @@
+{
+  "name": "Workflow 3 - Orquestrador",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "965b850d-a0ef-4005-b1c5-e423602421b9",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "hqgzbwPT5qVzFEBs",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/hqgzbwPT5qVzFEBs",
+          "cachedResultName": "Workflow 1 - Ingestão"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        0
+      ],
+      "id": "eea1cbf3-e5ae-48a6-afb5-f7f6f8923518",
+      "name": "Call 'Workflow 1 - Ingestão'",
+      "notesInFlow": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zkiSaJ6eDwPQxpwg",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/zkiSaJ6eDwPQxpwg",
+          "cachedResultName": "Workflow 2 - Processamento"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        448,
+        -192
+      ],
+      "id": "1037d20d-1582-428a-8d88-2f8b8637fe06",
+      "name": "Call 'Workflow 2 - Processamento'",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dw_pipeline_runs (etapa, status, mensagem_erro, finalizado_em)\nVALUES ('ORQUESTRADOR', 'ERRO', '{{ $json.error?.message || \"Falha no processamento\" }}', now());",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        -96
+      ],
+      "id": "9ca43d61-deb5-43fb-ba39-87a652f571bf",
+      "name": "Log - Falha processamento",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dw_pipeline_runs (etapa, status, mensagem_erro, finalizado_em)\nVALUES ('ORQUESTRADOR', 'ERRO', '{{ $json.error?.message || \"Falha na ingestão\" }}', now());",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        96
+      ],
+      "id": "8cc3fbd4-fc5b-433d-8906-ff698ec84c9e",
+      "name": "Log - Falha ingestão",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO dw_pipeline_runs (etapa, status, finalizado_em)\nVALUES ('ORQUESTRADOR', 'SUCESSO', now());",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        672,
+        -288
+      ],
+      "id": "7d23508b-48e1-4ae4-bd6b-1742157d3c19",
+      "name": "Log - Sucesso",
+      "credentials": {
+        "postgres": {
+          "id": "FvjYOrs6Rhibyp7A",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call 'Workflow 1 - Ingestão'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Workflow 1 - Ingestão'": {
+      "main": [
+        [
+          {
+            "node": "Call 'Workflow 2 - Processamento'",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log - Falha ingestão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Workflow 2 - Processamento'": {
+      "main": [
+        [
+          {
+            "node": "Log - Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log - Falha processamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "2731fd22-1ef1-4742-a06f-5bb0a2abf40f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5424ea22d71e2611c30f24cd2ca291fba4be1ae06ebcb7a15275f7a4a5b39c9c"
+  },
+  "nodeGroups": [],
+  "id": "rVtaVZNFxcAySAxQ",
+  "tags": []
+}

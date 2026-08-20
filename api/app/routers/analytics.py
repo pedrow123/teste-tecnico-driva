@@ -1,17 +1,17 @@
 import math
 from typing import Optional
- 
+
 from fastapi import APIRouter, Depends, Query
- 
+
 from app.core import get_cursor, verify_api_key
- 
+
 router = APIRouter(
     prefix="/analytics",
     tags=["analytics"],
     dependencies=[Depends(verify_api_key)],
 )
- 
- 
+
+
 @router.get("/overview")
 def overview():
     with get_cursor() as cur:
@@ -29,7 +29,7 @@ def overview():
             """
         )
         totals = cur.fetchone()
- 
+
         cur.execute(
             """
             SELECT categoria_tamanho_job, COUNT(*) AS total
@@ -38,7 +38,7 @@ def overview():
             """
         )
         por_categoria = cur.fetchall()
- 
+
         cur.execute(
             """
             SELECT status_processamento, COUNT(*) AS total
@@ -47,7 +47,7 @@ def overview():
             """
         )
         por_status = cur.fetchall()
- 
+
     return {
         "total_jobs": totals["total_jobs"],
         "percentual_sucesso": round(float(totals["percentual_sucesso"]), 2),
@@ -59,8 +59,8 @@ def overview():
             row["status_processamento"] or "DESCONHECIDO": row["total"] for row in por_status
         },
     }
- 
- 
+
+
 @router.get("/enrichments")
 def list_enrichments(
     page: int = Query(default=1, ge=1),
@@ -72,44 +72,44 @@ def list_enrichments(
 ):
     filtros = []
     valores = []
- 
+
     if id_workspace:
         filtros.append("id_workspace = %s")
         valores.append(id_workspace)
- 
+
     if status_processamento:
         filtros.append("status_processamento = %s")
         valores.append(status_processamento)
- 
+
     if data_inicio:
         filtros.append("data_criacao >= %s")
         valores.append(data_inicio)
- 
+
     if data_fim:
         filtros.append("data_criacao <= %s")
         valores.append(data_fim)
- 
+
     where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
     offset = (page - 1) * limit
- 
+
     with get_cursor() as cur:
         cur.execute(f"SELECT COUNT(*) AS total FROM gold_enrichments {where_clause};", valores)
         total_items = cur.fetchone()["total"]
- 
+
         cur.execute(
             f"""
             SELECT *
             FROM gold_enrichments
             {where_clause}
-            ORDER BY data_criacao DESC
+            ORDER BY data_atualizacao_dw DESC
             LIMIT %s OFFSET %s;
             """,
             valores + [limit, offset],
         )
         rows = cur.fetchall()
- 
+
     total_pages = math.ceil(total_items / limit) if total_items else 0
- 
+
     return {
         "meta": {
             "current_page": page,
@@ -119,8 +119,30 @@ def list_enrichments(
         },
         "data": rows,
     }
- 
- 
+
+
+@router.get("/pipeline-status")
+def pipeline_status():
+    """
+    Retorna a execução mais recente de cada etapa do pipeline
+    (INGESTAO, PROCESSAMENTO, ORQUESTRADOR), para o dashboard mostrar
+    se o ciclo automático está rodando.
+    """
+    with get_cursor() as cur:
+        cur.execute(
+            """
+            SELECT DISTINCT ON (etapa)
+                etapa, status, qtd_registros, mensagem_erro,
+                iniciado_em, finalizado_em
+            FROM dw_pipeline_runs
+            ORDER BY etapa, iniciado_em DESC;
+            """
+        )
+        rows = cur.fetchall()
+
+    return {"data": rows}
+
+
 @router.get("/workspaces/top")
 def top_workspaces(limit: int = Query(default=10, ge=1, le=100)):
     with get_cursor() as cur:
@@ -139,6 +161,5 @@ def top_workspaces(limit: int = Query(default=10, ge=1, le=100)):
             (limit,),
         )
         rows = cur.fetchall()
- 
+
     return {"data": rows}
- 
