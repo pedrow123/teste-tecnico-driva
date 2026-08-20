@@ -22,7 +22,7 @@ O fluxo completo funciona assim:
 ```
                     ┌──────────────┐
    a cada 5min      │  n8n         │
-   ┌───────────────▶│  Orquestrador│
+   ┌────────────── ▶│  Orquestrador│
    │                 └──────┬───────┘
    │                        │ chama
    │            ┌───────────┴────────────┐
@@ -82,19 +82,19 @@ driva-teste-tecnico/
 │
 ├── n8n/
 │   └── workflows/
-│       ├── 01-ingestao-bronze.json
-│       ├── 02-processamento-gold.json
-│       └── 00-orquestrador-scheduler.json
+│       ├── Workflow 1 - Ingestão.json
+│       ├── Workflow 2 - Processamento.json
+│       └── Workflow 3 - Orquestrador.json
 │
 └── frontend/
     ├── Dockerfile
     ├── package.json
-    ├── vite.config.js               # envDir aponta para o .env único na raiz
+    ├── vite.config.js               
     ├── index.html
     └── src/
         ├── main.jsx / App.jsx
-        ├── index.css / App.css       # design tokens + estilos
-        ├── api/client.js             # fetch com Bearer token
+        ├── index.css / App.css      
+        ├── api/client.js            
         ├── components/
         │   ├── Header.jsx
         │   ├── PipelineStatusCard.jsx
@@ -120,7 +120,7 @@ driva-teste-tecnico/
 
 ```bash
 # 1. Clone/extraia o projeto e entre na pasta raiz
-cd driva-teste-tecnico
+cd teste-tecnico-driva
 
 # 2. Copie o arquivo de variáveis de ambiente (único, na raiz — usado por todos os serviços)
 cp .env.example .env
@@ -231,11 +231,11 @@ A API libera CORS (`allow_origins=["*"]`) para que o dashboard, rodando em outra
 
 ### Os três workflows
 
-**`01-ingestao-bronze.json`** — chamável (`Execute Workflow Trigger`). Pagina o endpoint de fonte, trata `429` com retry e backoff exponencial, e faz upsert na Bronze.
+**`Workflow 1 - Ingestão.json`** — chamável (`Execute Workflow Trigger`). Pagina o endpoint de fonte, trata `429` com retry e backoff exponencial, e faz upsert na Bronze.
 
-**`02-processamento-gold.json`** — chamável. Lê a Bronze inteira, aplica as traduções e os campos calculados, e faz upsert na Gold.
+**`Workflow 2 - Processamento.json`** — chamável. Lê a Bronze inteira, aplica as traduções e os campos calculados, e faz upsert na Gold.
 
-**`00-orquestrador-scheduler.json`** — `Schedule Trigger` a cada 5 minutos. Chama Ingestão → Processamento em sequência, com tratamento de erro via saída `On Error: Continue (using error output)` em cada `Execute Workflow`, logando sucesso/erro em `dw_pipeline_runs`.
+**`Workflow 3 - Orquestrador.json`** — `Schedule Trigger` a cada 5 minutos. Chama Ingestão → Processamento em sequência, com tratamento de erro via saída `On Error: Continue (using error output)` em cada `Execute Workflow`, logando sucesso/erro em `dw_pipeline_runs`.
 
 ### Testando sem esperar o schedule
 
