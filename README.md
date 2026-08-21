@@ -2,6 +2,12 @@
 
 Solução do teste técnico: pipeline de dados em camadas **Bronze/Gold** para monitorar performance e qualidade dos enriquecimentos entregues na plataforma, com API própria, orquestração via **n8n** e um **dashboard** de consumo para o time de Visibilidade.
 
+## Demonstração
+
+Vídeo de demonstração da solução, apresentando a arquitetura, execução da pipeline, workflows do n8n, API e dashboard.
+
+[Assistir ao vídeo de demonstração](https://drive.google.com/file/d/1MiolVZnAFvcJJKN7kDMGAjT_nxttqHtq/view?usp=drive_link)
+
 ---
 
 ## Visão geral da solução
